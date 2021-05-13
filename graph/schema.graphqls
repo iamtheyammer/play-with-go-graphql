@@ -11,7 +11,7 @@ type User {
 }
 
 type Query {
-  links: [Link!]!
+  links(id: ID, limit: Int, offset: Int): [Link!]!
 }
 
 input NewLink {

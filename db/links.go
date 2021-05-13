@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/iamtheyammer/play-with-go-graphql/graph/model"
 	"strconv"
 )
@@ -34,21 +35,45 @@ func CreateLink(link model.NewLink, userId int) (*model.Link, error) {
 	}, nil
 }
 
-func ListLinks(limit int) ([]*model.Link, error) {
-	stmt, err := db.Prepare("SELECT users.id, users.username, links.id, links.title, links.address FROM links JOIN users ON links.creator_user_id = users.id LIMIT (?)")
-	if err != nil {
-		return nil, fmt.Errorf("error preparing list links sql: %w", err)
+type ListLinksRequest struct {
+	ID     *int
+	Limit  *int
+	Offset *int
+}
+
+func ListLinks(req *ListLinksRequest) ([]*model.Link, error) {
+	q := sq.Select(
+		"users.id",
+		"users.username",
+		"links.id",
+		"links.title",
+		"links.address",
+	).
+		From("links").
+		Join("users ON links.creator_user_id = users.id")
+
+	if req.ID != nil {
+		q = q.Where(sq.Eq{"links.id": *req.ID})
 	}
 
-	defer stmt.Close()
-
-	if limit == 0 {
-		limit = 10
+	if req.Limit != nil {
+		q = q.Limit(uint64(*req.Limit))
+	} else {
+		q = q.Limit(10)
 	}
 
-	rows, err := stmt.Query(limit)
+	if req.Offset != nil {
+		q = q.Offset(uint64(*req.Offset))
+	}
+
+	sql, args, err := q.ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("error opening links rows for reading: %w", err)
+		return nil, fmt.Errorf("error building list links sql: %w", err)
+	}
+
+	rows, err := db.Query(sql, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying list links sql: %w", err)
 	}
 
 	defer rows.Close()

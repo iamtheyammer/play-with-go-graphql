@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"time"
@@ -43,7 +44,19 @@ func ParseToken(tokenStr string) (int, error) {
 		return 0, fmt.Errorf("error parsing jwt: %w", err)
 	}
 
-	sub := token.Claims.(jwt.MapClaims)["sub"]
+	sub, ok := token.Claims.(jwt.MapClaims)["sub"].(float64)
+	if !ok {
+		return 0, fmt.Errorf("jwt missing subject")
+	}
 
-	return sub
+	return int(sub), nil
+}
+
+func UserIDFromContext(ctx context.Context) int {
+	raw := ctx.Value(userIDContextKey("user_id"))
+	if raw == nil {
+		return 0
+	}
+
+	return *raw.(*int)
 }
